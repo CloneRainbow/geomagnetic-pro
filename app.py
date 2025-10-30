@@ -151,8 +151,8 @@ tabs = st.tabs(["Калькулятор", "Карта", "Пакет"])
 # === КАЛЬКУЛЯТОР ===
 with tabs[0]:
     col1, col2 = st.columns(2)
-    lat = col1.number_input("Широта", value=55,819666, format="%.6f")
-    lon = col1.number_input("Довгота", value=37,611481, format="%.6f")
+    lat = col1.number_input("Широта", value=55.819666, format="%.6f")
+    lon = col1.number_input("Довгота", value=37.611481, format="%.6f")
     alt = col2.number_input("Висота (м)", value=20.0, step=5.0)
 
     if st.button("Обчислити", type="primary"):
