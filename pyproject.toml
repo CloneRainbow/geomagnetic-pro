@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geomagnetic-pro"
+version = "1.0.0"
+dependencies = [
+    "streamlit>=1.39.0",
+    "pandas",
+    "numpy",
+    "pygeomag",
+    "plotly",
+    "mgrs",
+    "pyproj",
+    "geopandas",
+    "gpxpy",
+    "simplekml",
+    "fastkml",
+    "shapely",
+    "requests",
+    "rasterio",
+    "scipy"
+]
+
+[tool.setuptools]
+packages = []
