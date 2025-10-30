@@ -519,4 +519,105 @@ with tabs[1]:
                                 "mgrs": mgrs_search_input.strip(),
                                 "precision": get_mgrs_precision(mgrs_search_input.strip()),
                                 "type": "search"
-    
+
+    st.session_state.mgrs_search = search_result
+                            # Оновлюємо центр карти
+                            st.session_state.last_click = None
+                            st.success(f"Знайдено координати: {lat:.6f}°, {lon:.6f}°")
+                            st.rerun()
+                        else:
+                            st.error("Не вдалося конвертувати MGRS координати")
+                    else:
+                        st.error("Некоректний формат MGRS координат")
+                else:
+                    st.error("Будь ласка, введіть MGRS координати")
+        
+        with col_search2:
+            if st.button("🗑️ Очистити пошук", key="clear_search"):
+                st.session_state.mgrs_search = None
+                st.rerun()
+        
+        if st.session_state.mgrs_search:
+            st.info(f"**Пошук:** {st.session_state.mgrs_search['mgrs']}")
+        
+        st.markdown("---")
+        st.markdown("### Додати точку")
+        
+        # Ручний ввід координат для додавання точок
+        col_click1, col_click2 = st.columns(2)
+        with col_click1:
+            click_lat = st.number_input("Широта (°)", min_value=-90.0, max_value=90.0, value=50.4501, key="click_lat")
+        with col_click2:
+            click_lon = st.number_input("Довгота (°)", min_value=-180.0, max_value=180.0, value=30.5234, key="click_lon")
+        
+        click_alt = st.number_input("Висота (м)", min_value=-10000.0, max_value=100000.0, value=0.0, key="click_alt")
+        
+        if st.button("✅ Додати точку на карту", key="add_point"):
+            result = calc_point(click_lat, click_lon, click_alt, decimal_year(date.today()))
+            if "error" not in result:
+                st.session_state.last_click = result
+                if len(st.session_state.selected_points) >= 10:
+                    st.session_state.selected_points.pop(0)
+                st.session_state.selected_points.append(result)
+                st.success(f"Додано точку: {click_lat:.4f}°, {click_lon:.4f}°")
+                st.rerun()
+
+    with col_map1:
+        # Визначення центру карти
+        if st.session_state.mgrs_search:
+            # Якщо є пошук - центруємо на ньому
+            map_center_lat = st.session_state.mgrs_search['lat']
+            map_center_lon = st.session_state.mgrs_search['lon']
+            map_zoom = 14  # Збільшений масштаб для пошуку
+        elif st.session_state.last_click:
+            # Якщо є остання точка - центруємо на ній
+            map_center_lat = st.session_state.last_click['lat']
+            map_center_lon = st.session_state.last_click['lon']
+            map_zoom = 12
+        else:
+            # Інакше використовуємо налаштування користувача
+            map_center_lat = center_lat
+            map_center_lon = center_lon
+            map_zoom = zoom_level
+        
+        # Підготовка точок для карти
+        all_points = st.session_state.selected_points.copy()
+        
+        # Створення Leaflet карти
+        map_html = create_leaflet_map(
+            center_lat=map_center_lat,
+            center_lon=map_center_lon,
+            zoom=map_zoom,
+            points=all_points,
+            search_point=st.session_state.mgrs_search
+        )
+        
+        # Відображення карти
+        components.html(map_html, height=600)
+        
+        # Інформація про взаємодію з картою
+        st.info("""
+        **💡 Інструкція:**
+        - **🔴 Червоні точки**: Історія ваших виборів (натисніть для деталей)
+        - **🟠 Помаранчеві зірки**: Точки пошуку MGRS
+        - **📏 Масштаб**: Використовуйте кнопки +/- або прокрутку миші
+        - **🗺️ Переміщення**: Перетягніть карту для навігації
+        """)
+        
+        # Інформація про останній вибір
+        if st.session_state.last_click:
+            lc = st.session_state.last_click
+            with st.expander("📋 Інформація про останню обрану точку", expanded=True):
+                col_lc1, col_lc2 = st.columns(2)
+                with col_lc1:
+                    st.write(f"**📍 Координати:**")
+                    st.write(f"Широта: {lc['lat']:.6f}°")
+                    st.write(f"Довгота: {lc['lon']:.6f}°")
+                    st.write(f"Висота: {lc['alt']} м")
+                    st.write(f"**🗺️ MGRS:** {lc['mgrs']}")
+                with col_lc2:
+                    st.write(f"**⚡ Геомагнітні параметри:**")
+                    st.write(f"Деклінація: {lc['decl']}°")
+                    st.write(f"Інтенсивність: {lc['total']:,.1f} nT")
+                    st.write(f"Статус: {lc['storm']}")
+                    st.write(f"**🧭 UTM:** {lc.get('utm_zone', 'N/A')}")
