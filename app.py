@@ -651,3 +651,121 @@ with tabs[1]:
                             st.success("Точку додано до історії!")
                             st.rerun()
 
+# === ПАКЕТНА ОБРОБКА ===
+with tabs[2]:
+    st.subheader("📦 Пакетна обробка даних")
+    
+    file = st.file_uploader("Завантажте CSV файл", type=["csv"], key="batch_csv")
+    
+    if file:
+        try:
+            df = pd.read_csv(file)
+            st.success(f"Файл успішно завантажено: {len(df)} рядків")
+            
+            if not all(c in df.columns for c in ["lat", "lon"]):
+                st.error("CSV файл повинен містити колонки 'lat' та 'lon'")
+                st.stop()
+            
+            df["alt"] = df.get("alt", 0).fillna(0)
+            
+            col_stats1, col_stats2, col_stats3 = st.columns(3)
+            with col_stats1:
+                st.metric("Кількість точок", len(df))
+            with col_stats2:
+                valid_lats = df[(df['lat'] >= -90) & (df['lat'] <= 90)]
+                st.metric("Валідні широти", len(valid_lats))
+            with col_stats3:
+                valid_lons = df[(df['lon'] >= -180) & (df['lon'] <= 180)]
+                st.metric("Валідні довготи", len(valid_lons))
+            
+            col_batch1, col_batch2 = st.columns(2)
+            with col_batch1:
+                batch_date = st.date_input("Дата для розрахунків", value=date.today(), key="batch_date")
+            with col_batch2:
+                include_mgrs_details = st.checkbox("Включити деталі MGRS", value=True, key="include_mgrs")
+            
+            pts = [(r["lat"], r["lon"], r["alt"]) for _, r in df.iterrows()]
+            
+            if st.button("🚀 Запустити пакетну обробку", type="primary", key="batch_btn"):
+                with st.spinner(f"Обчислення для {len(pts)} точок..."):
+                    results = []
+                    progress_bar = st.progress(0)
+                    
+                    for i, point in enumerate(pts):
+                        lat, lon, alt = point
+                        if validate_coordinates(lat, lon, alt):
+                            res = calc_point(lat, lon, alt, decimal_year(batch_date))
+                            if "error" not in res and include_mgrs_details:
+                                res.update(res.get("mgrs_details", {}))
+                            results.append(res)
+                        else:
+                            results.append({"error": "Invalid coordinates", "lat": lat, "lon": lon, "alt": alt})
+                        
+                        progress_bar.progress((i + 1) / len(pts))
+                    
+                    df_out = pd.DataFrame(results)
+                    
+                    st.subheader("📊 Результати обробки")
+                    st.dataframe(df_out, use_container_width=True, height=400)
+                    
+                    successful = len([r for r in results if "error" not in r])
+                    col_stat1, col_stat2 = st.columns(2)
+                    with col_stat1:
+                        st.metric("Успішні розрахунки", successful)
+                    with col_stat2:
+                        st.metric("Помилки", len(results) - successful)
+                    
+                    csv_data = df_out.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                    st.download_button(
+                        "⬇️ Завантажити CSV", 
+                        csv_data,
+                        f"geomag_batch_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", 
+                        "text/csv",
+                        key="download_batch"
+                    )
+                    
+        except Exception as e:
+            st.error(f"Помилка читання CSV файлу: {e}")
+
+# === ІСТОРІЯ ВИБОРУ ===
+with tabs[3]:
+    st.subheader("📚 Історія обраних точок")
+    
+    if not st.session_state.selected_points:
+        st.info("ℹ️ Ще немає обраних точок. Використовуйте карту або калькулятор для додавання точок.")
+    else:
+        history_df = pd.DataFrame(st.session_state.selected_points)
+        display_cols = ['lat', 'lon', 'alt', 'mgrs', 'decl', 'total', 'storm', 'timestamp']
+        available_cols = [col for col in display_cols if col in history_df.columns]
+        
+        st.dataframe(history_df[available_cols], use_container_width=True, height=300)
+        
+        col_hist1, col_hist2 = st.columns(2)
+        with col_hist1:
+            if st.button("🗑️ Очистити історію", type="secondary"):
+                st.session_state.selected_points = []
+                st.session_state.last_click = None
+                st.rerun()
+        with col_hist2:
+            if st.button("💾 Експортувати історію", type="primary"):
+                hist_csv = history_df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                st.download_button(
+                    "⬇️ Завантажити історію", 
+                    hist_csv,
+                    f"geomag_history_{datetime.now().strftime('%Y%m%d_%H%M')}.csv", 
+                    "text/csv",
+                    key="download_history"
+                )
+
+# === ФУТЕР ===
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center'>
+        <strong>Geomagnetic Pro 2025</strong> • WMM 2025 • Leaflet Map<br>
+        <small>Розроблено для геомагнітних досліджень та навігації</small>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
