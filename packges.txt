@@ -1,0 +1,7 @@
+gdal-bin
+libgdal-dev
+libproj-dev
+libgeos-dev
+libspatialindex-dev
+python3-dev
+build-essential
