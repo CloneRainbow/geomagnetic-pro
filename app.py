@@ -304,13 +304,11 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Помилка: {e}")
 with tabs[2]:
-    # Ініціалізація стану
+    # === ІНІЦІАЛІЗАЦІЯ СЕСІЇ ===
     if 'map_points' not in st.session_state:
         st.session_state.map_points = []
-    if 'map' not in st.session_state:
-        st.session_state.map = {}
 
-    # Створення карти
+    # === СТВОРЕННЯ КАРТИ ===
     fig = go.Figure()
     fig.update_layout(
         mapbox_style="open-street-map",
@@ -326,37 +324,21 @@ with tabs[2]:
             line=dict(width=2, color="red")
         ))
 
-    # Відображення карти з key
+    # === ВІДОБРАЖЕННЯ КАРТИ ===
     st.plotly_chart(fig, use_container_width=True, key="interactive_map")
 
-    # Обробка кліку
-    if st.session_state.interactive_map and st.session_state.interactive_map.get("click"):
-        click = st.session_state.interactive_map["click"]
-        lat, lon = click["lat"], click["lon"]
-        st.session_state.map_points.append((lat, lon))
-        st.success(f"Додано точку: {lat:.6f}, {lon:.6f}")
+    # === БЕЗПЕЧНА ОБРОБКА КЛІКУ ===
+    if hasattr(st.session_state, 'interactive_map') and st.session_state.interactive_map:
+        click_data = st.session_state.interactive_map.get("click")
+        if click_data:
+            lat, lon = click_data["lat"], click_data["lon"]
+            st.session_state.map_points.append((lat, lon))
+            st.success(f"Додано точку: {lat:.6f}, {lon:.6f}")
 
-    # Кнопка очищення
+    # === КНОПКА ОЧИЩЕННЯ ===
     if st.button("🗑️ Очистити карту"):
         st.session_state.map_points = []
-        st.session_state.map = {}
         st.rerun()
-
-'''with tabs[2]:
-    if 'map_points' not in st.session_state:
-        st.session_state.map_points = []
-    fig = go.Figure()
-    fig.update_layout(mapbox_style="open-street-map", height=600)
-    if st.session_state.map_points:
-        lats, lons = zip(*st.session_state.map_points)
-        fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode="markers+lines", marker=dict(size=12)))
-    st.plotly_chart(fig, use_container_width=True, key="map")
-    if st.session_state.map and "click" in st.session_state.map:
-        click = st.session_state.map["click"]
-        if click:
-            st.session_state.map_points.append((click["lat"], click["lon"]))
-    if st.button("Очистити"):
-        st.session_state.map_points = []'''
 
 with tabs[3]:
     st.code('''layer = QgsVectorLayer("geomag.kml", "Geomag", "ogr")
