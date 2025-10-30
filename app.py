@@ -518,7 +518,7 @@ with tabs[1]:
                                 "lon": lon,
                                 "mgrs": mgrs_search_input.strip(),
                                 "precision": get_mgrs_precision(mgrs_search_input.strip()),
-                                "type": "search"
+                                "type": "search"}
 
     st.session_state.mgrs_search = search_result
                             # Оновлюємо центр карти
