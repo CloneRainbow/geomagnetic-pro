@@ -308,21 +308,36 @@ with tabs[2]:
     if 'map_points' not in st.session_state:
         st.session_state.map_points = []
 
-    # === СТВОРЕННЯ КАРТИ ===
+    # === СТВОРЕННЯ КАРТИ З БАЗОВИМ ШАРОМ ===
     fig = go.Figure()
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        height=600,
-        margin=dict(l=0, r=0, t=0, b=0)
-    )
+
+    # Базовий шар карти (обов’язково!)
+    fig.add_trace(go.Scattermapbox(
+        mode="markers",
+        lon=[0], lat=[0],
+        marker={'size': 0, 'color': []},
+        showlegend=False
+    ))
+
+    # Додавання точок користувача
     if st.session_state.map_points:
         lats, lons = zip(*st.session_state.map_points)
         fig.add_trace(go.Scattermapbox(
             lat=lats, lon=lons,
             mode="markers+lines",
             marker=dict(size=12, color="red"),
-            line=dict(width=2, color="red")
+            line=dict(width=2, color="red"),
+            name="Точки"
         ))
+
+    # Налаштування карти
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=2,
+        mapbox_center={"lat": 50, "lon": 30},  # Центр (Україна)
+        height=600,
+        margin=dict(l=0, r=0, t=0, b=0)
+    )
 
     # === ВІДОБРАЖЕННЯ КАРТИ ===
     st.plotly_chart(fig, use_container_width=True, key="interactive_map")
@@ -336,9 +351,11 @@ with tabs[2]:
             st.success(f"Додано точку: {lat:.6f}, {lon:.6f}")
 
     # === КНОПКА ОЧИЩЕННЯ ===
-    if st.button("🗑️ Очистити карту"):
-        st.session_state.map_points = []
-        st.rerun()
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("🗑️ Очистити"):
+            st.session_state.map_points = []
+            st.rerun()
 
 with tabs[3]:
     st.code('''layer = QgsVectorLayer("geomag.kml", "Geomag", "ogr")
