@@ -621,3 +621,33 @@ with tabs[1]:
                     st.write(f"Інтенсивність: {lc['total']:,.1f} nT")
                     st.write(f"Статус: {lc['storm']}")
                     st.write(f"**🧭 UTM:** {lc.get('utm_zone', 'N/A')}")
+# Інформація про точку пошуку MGRS
+        if st.session_state.mgrs_search:
+            search = st.session_state.mgrs_search
+            with st.expander("🔍 Інформація про точку пошуку MGRS", expanded=True):
+                col_search1, col_search2 = st.columns(2)
+                with col_search1:
+                    st.write(f"**📍 MGRS координати:**")
+                    st.write(f"**Код:** {search['mgrs']}")
+                    st.write(f"**Точність:** {search['precision']}")
+                    st.write(f"**Широта:** {search['lat']:.6f}°")
+                    st.write(f"**Довгота:** {search['lon']:.6f}°")
+                
+                with col_search2:
+                    # Розрахунок параметрів для точки пошуку
+                    search_result = calc_point(search['lat'], search['lon'], 0, decimal_year(date.today()))
+                    if "error" not in search_result:
+                        st.write(f"**⚡ Геомагнітні параметри:**")
+                        st.write(f"Деклінація: {search_result['decl']}°")
+                        st.write(f"Інтенсивність: {search_result['total']:,.1f} nT")
+                        st.write(f"UTM: {search_result['utm_zone']}")
+                    
+                    if st.button("➕ Додати до історії", key="add_search_to_history"):
+                        if "error" not in search_result:
+                            st.session_state.last_click = search_result
+                            if len(st.session_state.selected_points) >= 10:
+                                st.session_state.selected_points.pop(0)
+                            st.session_state.selected_points.append(search_result)
+                            st.success("Точку додано до історії!")
+                            st.rerun()
+
