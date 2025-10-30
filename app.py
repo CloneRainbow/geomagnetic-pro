@@ -55,9 +55,6 @@ def decimal_year(d: date) -> float:
     start = date(d.year, 1, 1)
     return d.year + (d - start).days / 365.25
 
-# =============================================
-# ПОШУК МІСЬ (Nominatim API)
-# =============================================
 # === ПОШУК ЗА КООРДИНАТАМИ (MGRS / UTM / lat-lon) ===
 st.subheader("🎯 Введіть координати")
 
