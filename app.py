@@ -304,29 +304,43 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Помилка: {e}")
 with tabs[2]:
-    # ІНІЦІАЛІЗАЦІЯ СЕСІЇ
+    # Ініціалізація стану
     if 'map_points' not in st.session_state:
         st.session_state.map_points = []
     if 'map' not in st.session_state:
         st.session_state.map = {}
 
+    # Створення карти
     fig = go.Figure()
-    fig.update_layout(mapbox_style="open-street-map", height=600)
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        height=600,
+        margin=dict(l=0, r=0, t=0, b=0)
+    )
     if st.session_state.map_points:
         lats, lons = zip(*st.session_state.map_points)
-        fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode="markers+lines", marker=dict(size=12, color="red")))
-    
-    chart = st.plotly_chart(fig, use_container_width=True, key="interactive_map")
-    
+        fig.add_trace(go.Scattermapbox(
+            lat=lats, lon=lons,
+            mode="markers+lines",
+            marker=dict(size=12, color="red"),
+            line=dict(width=2, color="red")
+        ))
+
+    # Відображення карти з key
+    st.plotly_chart(fig, use_container_width=True, key="interactive_map")
+
     # Обробка кліку
-    if st.session_state.interactive_map and "click" in st.session_state.interactive_map:
+    if st.session_state.interactive_map and st.session_state.interactive_map.get("click"):
         click = st.session_state.interactive_map["click"]
-        if click:
-            st.session_state.map_points.append((click["lat"], click["lon"]))
-    
-    if st.button("Очистити карту"):
+        lat, lon = click["lat"], click["lon"]
+        st.session_state.map_points.append((lat, lon))
+        st.success(f"Додано точку: {lat:.6f}, {lon:.6f}")
+
+    # Кнопка очищення
+    if st.button("🗑️ Очистити карту"):
         st.session_state.map_points = []
         st.session_state.map = {}
+        st.rerun()
 
 '''with tabs[2]:
     if 'map_points' not in st.session_state:
