@@ -25,7 +25,7 @@ class Calculator:
         self.wmm_loader.download_wmm()
     
     @st.cache_data(ttl=3600)
-    def get_rtdm(self, lat: float, lon: float, alt: float = 0) -> Dict:
+    def get_rtdm(_self, lat: float, lon: float, alt: float = 0) -> Dict:
         """Отримання реальних корекцій"""
         if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
             return {"decl_rt": 0.0, "total_rt": 0.0, "storm": "invalid_coords", "available": False}
