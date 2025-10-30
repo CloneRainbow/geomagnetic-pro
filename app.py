@@ -58,7 +58,38 @@ def decimal_year(d: date) -> float:
 # =============================================
 # ПОШУК МІСЬ (Nominatim API)
 # =============================================
-@st.cache_data
+# === ПОШУК ЗА КООРДИНАТАМИ (MGRS / UTM / lat-lon) ===
+st.subheader("🎯 Введіть координати")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    lat_input = st.number_input("Широта (lat)", value=50.4500, format="%.6f", key="search_lat")
+with col2:
+    lon_input = st.number_input("Довгота (lon)", value=30.5240, format="%.6f", key="search_lon")
+with col3:
+    if st.button("Додати точку", type="secondary"):
+        st.session_state.map_points.append((lat_input, lon_input))
+        st.success(f"Додано: {lat_input:.6f}, {lon_input:.6f}")
+
+st.markdown("**Або введіть MGRS / UTM:**")
+mgrs_input = st.text_input("MGRS (наприклад, 35UMC524136)")
+if st.button("Конвертувати MGRS → lat/lon"):
+    lat, lon = mgrs_to_latlon(mgrs_input)
+    if lat:
+        st.session_state.map_points.append((lat, lon))
+        st.success(f"MGRS → lat: {lat:.6f}, lon: {lon:.6f}")
+
+col_u1, col_u2, col_u3, col_u4 = st.columns(4)
+with col_u1: utm_zone = st.text_input("Зона UTM", "35U")
+with col_u2: utm_e = st.number_input("Easting", value=524136.0)
+with col_u3: utm_n = st.number_input("Northing", value=5584136.0)
+with col_u4:
+    if st.button("Конвертувати UTM"):
+        lat, lon = utm_to_latlon(utm_zone, utm_e, utm_n)
+        if lat:
+            st.session_state.map_points.append((lat, lon))
+            st.success(f"UTM → lat: {lat:.6f}, lon: {lon:.6f}")
+'''@st.cache_data
 def geocode_place(place_name: str) -> Dict:
     """Геокодування місця за допомогою Nominatim API."""
     url = "https://nominatim.openstreetmap.org/search"
@@ -81,7 +112,7 @@ def geocode_place(place_name: str) -> Dict:
     except Exception as e:
         st.error(f"Помилка пошуку: {e}")
         return None
-
+'''
 # =============================================
 # ПЕРЕТВОРЕННЯ
 # =============================================
