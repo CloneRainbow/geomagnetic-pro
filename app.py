@@ -339,17 +339,44 @@ with tabs[2]:
         st.session_state.map_points = []
 
     # === ПОШУК МІСЬ ===
-    st.subheader("🔍 Пошук місця")
-    place_name = st.text_input("Введіть назву місця (наприклад, 'Київ')", "Київ")
-    if st.button("Знайти координати", type="secondary"):
-        location = geocode_place(place_name)
-        if location:
-            st.success(f"Знайдено: {location['display_name']}")
-            st.metric("Широта", f"{location['lat']:.6f}")
-            st.metric("Довгота", f"{location['lon']:.6f}")
-            st.session_state.map_points.append((location['lat'], location['lon']))
+# === ВВЕДЕННЯ КООРДИНАТ (lat/lon, MGRS, UTM) ===
+st.subheader("🎯 Введіть координати")
+
+# --- lat/lon ---
+col_lat, col_lon = st.columns(2)
+with col_lat:
+    lat_input = st.number_input("Широта (lat)", value=50.4500, format="%.6f", key="input_lat")
+with col_lon:
+    lon_input = st.number_input("Довгота (lon)", value=30.5240, format="%.6f", key="input_lon")
+if st.button("Додати точку (lat/lon)", type="secondary"):
+    st.session_state.map_points.append((lat_input, lon_input))
+    st.success(f"Додано: {lat_input:.6f}, {lon_input:.6f}")
+
+# --- MGRS ---
+st.markdown("**Або введіть MGRS:**")
+mgrs_input = st.text_input("MGRS (наприклад: 35UMC524136)", key="mgrs_input")
+if st.button("Конвертувати MGRS → Додати точку"):
+    lat, lon = mgrs_to_latlon(mgrs_input)
+    if lat is not None:
+        st.session_state.map_points.append((lat, lon))
+        st.success(f"MGRS → {lat:.6f}, {lon:.6f}")
+    else:
+        st.error("Невірний формат MGRS")
+
+# --- UTM ---
+st.markdown("**Або введіть UTM:**")
+col_u1, col_u2, col_u3, col_u4 = st.columns(4)
+with col_u1: utm_zone = st.text_input("Зона", "35U", key="utm_zone")
+with col_u2: utm_e = st.number_input("Easting (м)", value=524136.0, key="utm_e")
+with col_u3: utm_n = st.number_input("Northing (м)", value=5584136.0, key="utm_n")
+with col_u4:
+    if st.button("Конвертувати UTM"):
+        lat, lon = utm_to_latlon(utm_zone, utm_e, utm_n)
+        if lat is not None:
+            st.session_state.map_points.append((lat, lon))
+            st.success(f"UTM → {lat:.6f}, {lon:.6f}")
         else:
-            st.error("Місце не знайдено. Спробуйте іншу назву.")
+            st.error("Невірний формат UTM")
 
     # === ВІЗУАЛІЗАЦІЯ ГЕОМАГНІТНИХ ДАНИХ ===
     st.subheader("🗺️ Карта з геомагнітними даними")
