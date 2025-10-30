@@ -151,9 +151,9 @@ tabs = st.tabs(["Калькулятор", "Карта", "Пакет"])
 # === КАЛЬКУЛЯТОР ===
 with tabs[0]:
     col1, col2 = st.columns(2)
-    lat = col1.number_input("Широта", value=55.819666, format="%.6f")
-    lon = col1.number_input("Довгота", value=37.611481, format="%.6f")
-    alt = col2.number_input("Висота (м)", value=20.0, step=100.0)
+    lat = col1.number_input("Широта", value=55,819666, format="%.6f")
+    lon = col1.number_input("Довгота", value=37,611481, format="%.6f")
+    alt = col2.number_input("Висота (м)", value=20.0, step=5.0)
 
     if st.button("Обчислити", type="primary"):
         res = calc_point(lat, lon, alt, decimal_year(date.today()))
@@ -172,7 +172,7 @@ with tabs[1]:
     gdf = load_vector(vector_file) if vector_file else None
 
     col1, col2 = st.columns(2)
-    alt_grid = col1.slider("Висота сітки (м)", 0, 10000, 0, 500)
+    alt_grid = col1.slider("Висота сітки (м)", 0, 10000, 0, 100)
     step = col2.slider("Крок (°)", 0.1, 1.0, 0.5, 0.1)
 
     cache_key = f"grid_{alt_grid}_{step}"
@@ -190,7 +190,7 @@ with tabs[1]:
     fig = go.Figure()
     fig.add_trace(go.Densitymap(
         lat=df_heatmap["lat"], lon=df_heatmap["lon"], z=df_heatmap["decl"],
-        radius=20, colorscale="RdBu", zmid=0, opacity=0.6,
+        radius=40, colorscale="RdBu", zmid=0, opacity=0.8,
         colorbar=dict(title="Деклінація (°)")
     ))
 
