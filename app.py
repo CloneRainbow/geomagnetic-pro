@@ -89,30 +89,6 @@ with col_u4:
         if lat:
             st.session_state.map_points.append((lat, lon))
             st.success(f"UTM → lat: {lat:.6f}, lon: {lon:.6f}")
-'''@st.cache_data
-def geocode_place(place_name: str) -> Dict:
-    """Геокодування місця за допомогою Nominatim API."""
-    url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        'q': place_name,
-        'format': 'json',
-        'limit': 1,
-        'polygon_geojson': 0
-    }
-    try:
-        response = requests.get(url, params=params)
-        data = response.json()
-        if data:
-            return {
-                'lat': float(data[0]['lat']),
-                'lon': float(data[0]['lon']),
-                'display_name': data[0]['display_name']
-            }
-        return None
-    except Exception as e:
-        st.error(f"Помилка пошуку: {e}")
-        return None
-'''
 # =============================================
 # ПЕРЕТВОРЕННЯ
 # =============================================
