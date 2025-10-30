@@ -58,7 +58,7 @@ class Calculator:
         return {"decl_rt": 0.0, "total_rt": 0.0, "storm": "offline", "available": False}
     
     @st.cache_data
-    def calc_point(self, lat: float, lon: float, alt: float, year: float) -> Dict:
+    def calc_point(_self, lat: float, lon: float, alt: float, year: float) -> Dict:
         """Розрахунок геомагнітних параметрів для точки"""
         if not self.coord_converter.validate_coordinates(lat, lon, alt):
             return {"error": "Invalid coordinates"}
