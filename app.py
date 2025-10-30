@@ -303,8 +303,32 @@ with tabs[1]:
                     st.download_button("GeoTIFF", tif_data, f"geomag_{field}.tif", "image/tiff")
         except Exception as e:
             st.error(f"Помилка: {e}")
-
 with tabs[2]:
+    # ІНІЦІАЛІЗАЦІЯ СЕСІЇ
+    if 'map_points' not in st.session_state:
+        st.session_state.map_points = []
+    if 'map' not in st.session_state:
+        st.session_state.map = {}
+
+    fig = go.Figure()
+    fig.update_layout(mapbox_style="open-street-map", height=600)
+    if st.session_state.map_points:
+        lats, lons = zip(*st.session_state.map_points)
+        fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode="markers+lines", marker=dict(size=12, color="red")))
+    
+    chart = st.plotly_chart(fig, use_container_width=True, key="interactive_map")
+    
+    # Обробка кліку
+    if st.session_state.interactive_map and "click" in st.session_state.interactive_map:
+        click = st.session_state.interactive_map["click"]
+        if click:
+            st.session_state.map_points.append((click["lat"], click["lon"]))
+    
+    if st.button("Очистити карту"):
+        st.session_state.map_points = []
+        st.session_state.map = {}
+
+'''with tabs[2]:
     if 'map_points' not in st.session_state:
         st.session_state.map_points = []
     fig = go.Figure()
@@ -318,7 +342,7 @@ with tabs[2]:
         if click:
             st.session_state.map_points.append((click["lat"], click["lon"]))
     if st.button("Очистити"):
-        st.session_state.map_points = []
+        st.session_state.map_points = []'''
 
 with tabs[3]:
     st.code('''layer = QgsVectorLayer("geomag.kml", "Geomag", "ogr")
