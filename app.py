@@ -360,98 +360,99 @@ with tabs[1]:
             st.error(f"Помилка: {e}")
 
 with tabs[2]:
-    # === ІНІЦІАЛІЗАЦІЯ СЕСІЇ ===
+    # === ІНІЦІАЛІЗАЦІЯ ===
     if 'map_points' not in st.session_state:
         st.session_state.map_points = []
 
-    # === ПОШУК МІСЬ ===
-# === ВВЕДЕННЯ КООРДИНАТ (lat/lon, MGRS, UTM) ===
-st.subheader("🎯 Введіть координати")
+    # === lat/lon ===
+    st.subheader("🎯 Введіть координати lat/lon")
+    col_lat, col_lon, col_add = st.columns([1, 1, 1])
+    with col_lat:
+        lat_input = st.number_input("Широта", value=50.450000, format="%.6f", key="map_lat_input")
+    with col_lon:
+        lon_input = st.number_input("Довгота", value=30.524000, format="%.6f", key="map_lon_input")
+    with col_add:
+        if st.button("➕ Додати", key="map_add_latlon_btn"):
+            st.session_state.map_points.append((lat_input, lon_input))
+            st.success(f"Додано: {lat_input:.6f}, {lon_input:.6f}")
+            st.rerun()
 
-# --- lat/lon ---
-col_lat, col_lon = st.columns(2)
-with col_lat:
-    lat_input = st.number_input("Широта (lat)", value=50.4500, format="%.6f", key="input_lat")
-with col_lon:
-    lon_input = st.number_input("Довгота (lon)", value=30.5240, format="%.6f", key="input_lon")
-if st.button("Додати точку (lat/lon)", type="secondary"):
-    st.session_state.map_points.append((lat_input, lon_input))
-    st.success(f"Додано: {lat_input:.6f}, {lon_input:.6f}")
-
-# --- MGRS ---
-st.markdown("**Або введіть MGRS:**")
-mgrs_input = st.text_input("MGRS (наприклад: 35UMC524136)", key="mgrs_input")
-if st.button("Конвертувати MGRS → Додати точку"):
-    lat, lon = mgrs_to_latlon(mgrs_input)
-    if lat is not None:
-        st.session_state.map_points.append((lat, lon))
-        st.success(f"MGRS → {lat:.6f}, {lon:.6f}")
-    else:
-        st.error("Невірний формат MGRS")
-
-# --- UTM ---
-st.markdown("**Або введіть UTM:**")
-col_u1, col_u2, col_u3, col_u4 = st.columns(4)
-with col_u1: utm_zone = st.text_input("Зона", "35U", key="utm_zone")
-with col_u2: utm_e = st.number_input("Easting (м)", value=524136.0, key="utm_e")
-with col_u3: utm_n = st.number_input("Northing (м)", value=5584136.0, key="utm_n")
-with col_u4:
-    if st.button("Конвертувати UTM"):
-        lat, lon = utm_to_latlon(utm_zone, utm_e, utm_n)
+    # === MGRS ===
+    st.markdown("---")
+    st.subheader("🔢 MGRS → lat/lon")
+    mgrs_input = st.text_input("MGRS (наприклад: 35UMC524136)", key="map_mgrs_input")
+    if st.button("➕ Конвертувати MGRS", key="map_convert_mgrs_btn"):
+        lat, lon = mgrs_to_latlon(mgrs_input)
         if lat is not None:
             st.session_state.map_points.append((lat, lon))
-            st.success(f"UTM → {lat:.6f}, {lon:.6f}")
+            st.success(f"MGRS → {lat:.6f}, {lon:.6f}")
+            st.rerun()
         else:
-            st.error("Невірний формат UTM")
+            st.error("Невірний формат MGRS")
 
-    # === ВІЗУАЛІЗАЦІЯ ГЕОМАГНІТНИХ ДАНИХ ===
+    # === UTM ===
+    st.markdown("---")
+    st.subheader("📏 UTM → lat/lon")
+    col_u1, col_u2, col_u3, col_u4 = st.columns(4)
+    with col_u1: utm_zone = st.text_input("Зона", "35U", key="map_utm_zone")
+    with col_u2: utm_e = st.number_input("Easting (м)", value=524136.0, key="map_utm_e")
+    with col_u3: utm_n = st.number_input("Northing (м)", value=5584136.0, key="map_utm_n")
+    with col_u4:
+        if st.button("➕ Конвертувати UTM", key="map_convert_utm_btn"):
+            lat, lon = utm_to_latlon(utm_zone, utm_e, utm_n)
+            if lat is not None:
+                st.session_state.map_points.append((lat, lon))
+                st.success(f"UTM → {lat:.6f}, {lon:.6f}")
+                st.rerun()
+            else:
+                st.error("Невірний формат UTM")
+
+    # === ВІЗУАЛІЗАЦІЯ ===
+    st.markdown("---")
     st.subheader("🗺️ Карта з геомагнітними даними")
     if st.session_state.map_points:
         df_map = pd.DataFrame(st.session_state.map_points, columns=['lat', 'lon'])
-        # Обчислення геомагнітних даних для точок
         year = decimal_year(date.today())
         df_map['decl'] = [calc_point(lat, lon, 0, year)['decl'] for lat, lon in st.session_state.map_points]
         df_map['incl'] = [calc_point(lat, lon, 0, year)['incl'] for lat, lon in st.session_state.map_points]
         df_map['total'] = [calc_point(lat, lon, 0, year)['total'] for lat, lon in st.session_state.map_points]
+        df_map['mgrs'] = [calc_point(lat, lon, 0, year)['mgrs'] for lat, lon in st.session_state.map_points]
 
-        # Візуалізація з кольоровим кодуванням (за деклінацією)
-        fig = px.scatter_mapbox(df_map, lat="lat", lon="lon", color="decl",
-                                size="total", size_max=15, zoom=5,
-                                mapbox_style="open-street-map",
-                                hover_data=["decl", "incl", "total"],
-                                title="🧭 Геомагнітні дані на карті (кодування за деклінацією)")
+        fig = px.scatter_mapbox(
+            df_map, lat="lat", lon="lon",
+            color="decl", size="total", size_max=15,
+            hover_data=["decl", "incl", "total", "mgrs"],
+            mapbox_style="open-street-map",
+            title="Геомагнітні дані"
+        )
         fig.update_layout(height=600)
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Додаткові опції візуалізації
-        vis_field = st.selectbox("Візуалізувати за полем", ["decl", "incl", "total"])
-        fig = px.scatter_mapbox(df_map, lat="lat", lon="lon", color=vis_field,
-                                size="total", size_max=15, zoom=5,
-                                mapbox_style="open-street-map",
-                                hover_data=["decl", "incl", "total"],
-                                title=f"🧭 Візуалізація за {vis_field}")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="geomag_map")
 
     else:
-        st.info("Додайте точки через пошук або клікніть на карті нижче.")
+        st.info("Додайте точки, щоб побачити карту.")
 
     # === ІНТЕРАКТИВНА КАРТА З КЛІКОМ ===
     fig = go.Figure()
-    fig.add_trace(go.Scattermapbox(mode="markers", lon=[0], lat=[0], marker={'size': 0}, showlegend=False))
-    fig.update_layout(mapbox_style="open-street-map", mapbox_zoom=2, mapbox_center={"lat": 50, "lon": 30}, height=400)
-    st.plotly_chart(fig, use_container_width=True, key="interactive_map")
+    fig.add_trace(go.Scattermapbox(mode="markers", lon=[0], lat=[0], marker={'size': 0}))
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_zoom=2,
+        mapbox_center={"lat": 50, "lon": 30},
+        height=400
+    )
+    st.plotly_chart(fig, use_container_width=True, key="interactive_map_click")
 
-    if hasattr(st.session_state, 'interactive_map') and st.session_state.interactive_map:
-        click_data = st.session_state.interactive_map.get("click")
-        if click_data:
-            lat, lon = click_data["lat"], click_data["lon"]
+    if hasattr(st.session_state, 'interactive_map_click') and st.session_state.interactive_map_click:
+        click = st.session_state.interactive_map_click.get("click")
+        if click:
+            lat, lon = click["lat"], click["lon"]
             st.session_state.map_points.append((lat, lon))
-            st.success(f"Додано точку кліком: {lat:.6f}, {lon:.6f}")
+            st.success(f"Клік: {lat:.6f}, {lon:.6f}")
+            st.rerun()
 
-    if st.button("🗑️ Очистити карту"):
+    if st.button("🗑️ Очистити", key="clear_map_btn"):
         st.session_state.map_points = []
         st.rerun()
-
 with tabs[3]:
     st.markdown("### Експорт для QGIS")
     st.code('''layer = QgsVectorLayer("geomag.geojson", "Geomag", "ogr")
