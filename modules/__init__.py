@@ -1,20 +1,14 @@
-# Модулі Geomagnetic Pro 2025
+# modules/__init__.py
 from .config import Config
+from .session_manager import SessionManager
 from .wmm_loader import WMMLoader
 from .coordinates import CoordinateConverter
 from .calculator import Calculator
 from .map_manager import MapManager
 from .data_import import DataImporter
 from .data_export import DataExporter
-from .session_manager import SessionManager
 
 __all__ = [
-    'Config',
-    'WMMLoader', 
-    'CoordinateConverter',
-    'Calculator',
-    'MapManager',
-    'DataImporter',
-    'DataExporter',
-    'SessionManager'
+    "Config", "SessionManager", "WMMLoader", "CoordinateConverter",
+    "Calculator", "MapManager", "DataImporter", "DataExporter"
 ]
