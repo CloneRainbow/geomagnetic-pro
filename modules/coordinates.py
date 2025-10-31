@@ -1,5 +1,6 @@
 """
-modules/coordinates.py — Координатний конвертер | MGRS, UTM, Lat/Lon
+Координатний конвертер
+
 """
 from __future__ import annotations
 
@@ -10,16 +11,10 @@ from typing import Tuple, Optional, Dict, Any
 
 
 class CoordinateConverter:
-    """Клас для конвертації між системами координат"""
-
     def __init__(self) -> None:
         self.mgrs_conv = mgrs.MGRS()
 
-    # =============================================
-    # MGRS → Lat/Lon
-    # =============================================
     def convert_mgrs_to_latlon(self, mgrs_str: str) -> Tuple[Optional[float], Optional[float]]:
-        """Конвертація MGRS → (lat, lon)"""
         mgrs_str = mgrs_str.strip().upper().replace(" ", "")
         if len(mgrs_str) < 5:
             return None, None
@@ -29,11 +24,7 @@ class CoordinateConverter:
         except Exception:
             return None, None
 
-    # =============================================
-    # Lat/Lon → MGRS
-    # =============================================
     def latlon_to_mgrs(self, lat: float, lon: float, precision: int = 5) -> str:
-        """Безпечна конвертація в MGRS"""
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             return "Invalid"
         try:
@@ -41,11 +32,7 @@ class CoordinateConverter:
         except Exception:
             return "Error"
 
-    # =============================================
-    # Валідація MGRS
-    # =============================================
     def validate_mgrs(self, mgrs_str: str) -> bool:
-        """Валідація формату MGRS"""
         mgrs_str = mgrs_str.strip().upper().replace(" ", "")
         if len(mgrs_str) < 5:
             return False
@@ -55,15 +42,10 @@ class CoordinateConverter:
         except Exception:
             return False
 
-    # =============================================
-    # Деталі MGRS
-    # =============================================
     def get_mgrs_details(self, mgrs_str: str) -> Dict[str, Any]:
-        """Детальна розбірка MGRS"""
         clean = mgrs_str.strip().upper().replace(" ", "")
         if len(clean) < 5 or not self.validate_mgrs(clean):
             return {"full": clean, "valid": False}
-
         try:
             zone_num = clean[:2]
             zone_letter = clean[2]
@@ -71,10 +53,8 @@ class CoordinateConverter:
             square = clean[4:6]
             digits = ''.join(c for c in clean[6:] if c.isdigit())
             precision = len(digits) // 2 if digits else 0
-
             precision_map = {0: "100 км", 1: "10 км", 2: "1 км", 3: "100 м", 4: "10 м", 5: "1 м"}
             prec_text = precision_map.get(precision, "Невідомо")
-
             return {
                 "full": clean,
                 "zone": f"{zone_num}{zone_letter}",
@@ -88,11 +68,7 @@ class CoordinateConverter:
         except Exception:
             return {"full": clean, "valid": False}
 
-    # =============================================
-    # UTM
-    # =============================================
     def latlon_to_utm(self, lat: float, lon: float) -> Tuple[str, float, float]:
-        """Обчислення UTM"""
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             return "Invalid", np.nan, np.nan
         try:
@@ -108,7 +84,6 @@ class CoordinateConverter:
             return "Error", np.nan, np.nan
 
     def utm_to_latlon(self, zone: int, east: float, north: float, south: bool = False) -> Tuple[float, float]:
-        """UTM → Lat/Lon"""
         try:
             proj_str = f"+proj=utm +zone={zone} +datum=WGS84 +units=m +no_defs"
             if south:
@@ -119,9 +94,6 @@ class CoordinateConverter:
         except Exception:
             return 0.0, 0.0
 
-    # =============================================
-    # Валідація
-    # =============================================
     @staticmethod
     def validate_coordinates(lat: float, lon: float, alt: float = 0.0) -> bool:
         return (-90 <= lat <= 90 and -180 <= lon <= 180 and -10000 <= alt <= 100000)
