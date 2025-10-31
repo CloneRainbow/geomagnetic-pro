@@ -96,7 +96,15 @@ def get_elevation(lat: float, lon: float) -> float:
         elev = r["results"][0]["elevation"]
         if elev is not None:
             new_row = pd.DataFrame([{"lat": key[0], "lon": key[1], "elev": elev}])
-            pd.concat([pd.read_csv(DEM_CACHE) if os.path.exists(DEM_CACHE) else pd.DataFrame(columns=["lat","lon","elev"]), new_row], ignore_index=True).to_csv(DEM_CACHE, index=False)
+            # Виправлення: уникаємо concat з порожнім DataFrame
+            if os.path.exists(DEM_CACHE) and os.path.getsize(DEM_CACHE) > 0:
+                existing = pd.read_csv(DEM_CACHE)
+                if not existing.empty:
+                    pd.concat([existing, new_row], ignore_index=True).to_csv(DEM_CACHE, index=False)
+                else:
+                    new_row.to_csv(DEM_CACHE, index=False)
+            else:
+                new_row.to_csv(DEM_CACHE, index=False)
             return round(elev, 1)
     except Exception as e:
         st.debug(f"DEM error: {e}")
@@ -134,12 +142,19 @@ def get_rtdm(lat: float, lon: float, alt: float = 0) -> Dict:
             total_rt = d.get("total_intensity", 0) - d.get("quiet_intensity", 0)
             storm = d.get("storm_level", "quiet")
             new_row = pd.DataFrame([{"lat": key[0], "lon": key[1], "decl_rt": decl_rt, "total_rt": total_rt, "storm": storm}])
-            pd.concat([pd.read_csv(RTDM_CACHE) if os.path.exists(RTDM_CACHE) else pd.DataFrame(columns=["lat","lon","decl_rt","total_rt","storm"]), new_row], ignore_index=True).to_csv(RTDM_CACHE, index=False)
+            # Виправлення: безпечний concat
+            if os.path.exists(RTDM_CACHE) and os.path.getsize(RTDM_CACHE) > 0:
+                existing = pd.read_csv(RTDM_CACHE)
+                if not existing.empty:
+                    pd.concat([existing, new_row], ignore_index=True).to_csv(RTDM_CACHE, index=False)
+                else:
+                    new_row.to_csv(RTDM_CACHE, index=False)
+            else:
+                new_row.to_csv(RTDM_CACHE, index=False)
             return {"decl_rt": decl_rt, "total_rt": total_rt, "storm": storm}
     except:
         pass
     return {"decl_rt": 0.0, "total_rt": 0.0, "storm": "offline"}
-
 # =============================================
 # КОНВЕРТОРИ
 # =============================================
