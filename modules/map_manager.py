@@ -8,10 +8,10 @@ import json
 from typing import List, Dict, Optional
 
 class MapManager:
-    """Клас для управління інтерактивною картою"""
-    
-    def __init__(self):
-        pass
+    def __init__(self, session: SessionManager, exporter: DataExporter):
+        self.session = session
+        self.exporter = exporter
+        self.config = session.config
     
     def create_leaflet_map(self, center_lat: float, center_lon: float, zoom: int, 
                           points: List[Dict], search_point: Optional[Dict] = None) -> str:
