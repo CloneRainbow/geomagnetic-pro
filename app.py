@@ -1,5 +1,5 @@
 """
-Geomagnetic Pro 2025 — Виправлено завантаження WMM_2025.COF
+Geomagnetic Pro 2025 — Оптимізований, стабільний, готовий до деплою
 WMM2025 | RTDM | MGRS | UTM | Теплова карта | Вектори | Клік | Висота
 """
 from __future__ import annotations
@@ -7,16 +7,15 @@ from __future__ import annotations
 import os
 import io
 import zipfile
-from datetime import date, datetime
-from typing import List, Dict, Tuple, Any
+from datetime import date
 from concurrent.futures import ThreadPoolExecutor
+from typing import List, Dict, Tuple
 import requests
 import numpy as np
 import geopandas as gpd
 import pandas as pd
 import mgrs
 import plotly.graph_objects as go
-import plotly.express as px
 from pyproj import Proj
 from pygeomag import GeoMag
 import streamlit as st
@@ -24,70 +23,33 @@ import streamlit as st
 # =============================================
 # КОНФІГУРАЦІЯ
 # =============================================
-st.set_page_config(page_title="Geomagnetic Pro 2025", page_icon="🧭", layout="wide")
+st.set_page_config(page_title="Geomagnetic Pro 2025", page_icon="compass", layout="wide")
 MGRS_CONV = mgrs.MGRS()
 COF_PATH = "wmm/WMM_2025.COF"
-COF_URL = "https://www.ncei.noaa.gov/products/world-magnetic-model/wmm-coefficients"  # ← ВИПРАВЛЕНО
+COF_URL = "https://www.ncei.noaa.gov/data/world-magnetic-model-2025/full/WMM_COEFS-2025.zip"
 RTDM_API = "https://geomag.usgs.gov/ws/edge/"
 
 # =============================================
-# ЗАВАНТАЖЕННЯ WMM_2025.COF (ВИПРАВЛЕНО)
+# ЗАВАНТАЖЕННЯ WMM2025
 # =============================================
 @st.cache_resource(show_spinner="Завантаження WMM2025...")
 def download_wmm() -> str:
     if os.path.exists(COF_PATH) and os.path.getsize(COF_PATH) > 1000:
         return COF_PATH
-    
     os.makedirs("wmm", exist_ok=True)
-    
     try:
-        # Завантажуємо сторінку з посиланням
         r = requests.get(COF_URL, timeout=30)
         r.raise_for_status()
-        
-        # Пошук посилання на ZIP (парсинг HTML)
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(r.text, 'html.parser')
-        zip_link = None
-        for a in soup.find_all('a', href=True):
-            if 'WMM2025' in a.text and a['href'].endswith('.zip'):
-                zip_link = a['href']
-                break
-        
-        if not zip_link:
-            raise ValueError("Не знайдено посилання на ZIP архів")
-        
-        # Завантажуємо архів
-        zip_url = zip_link if zip_link.startswith('http') else f"https://www.ncei.noaa.gov{zip_link}"
-        r_zip = requests.get(zip_url, timeout=30)
-        r_zip.raise_for_status()
-        
-        with zipfile.ZipFile(io.BytesIO(r_zip.content)) as z:
+        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
             cof_files = [n for n in z.namelist() if n.lower().endswith('.cof')]
             if not cof_files:
-                raise FileNotFoundError("COF файл не знайдено в архіві")
-            
+                raise FileNotFoundError("COF файл не знайдено")
             with z.open(cof_files[0]) as src, open(COF_PATH, "wb") as dst:
                 dst.write(src.read())
-            
-            # Валідація
-            with open(COF_PATH, 'r') as f:
-                first_line = f.readline().strip()
-                if "2025" not in first_line:
-                    raise ValueError("Файл не є WMM2025.COF")
-        
-        st.success("WMM2025 завантажено та перевірено!")
         return COF_PATH
-        
     except Exception as e:
         st.error(f"Помилка завантаження WMM2025: {e}")
-        st.info("""
-        **Ручне завантаження:**
-        1. Перейдіть до [NOAA WMM2025](https://www.ncei.noaa.gov/products/world-magnetic-model/wmm-coefficients)
-        2. Завантажте ZIP архів
-        3. Розпакуйте `WMM2025.COF` у папку `wmm/`
-        4. Пуште на GitHub та перезапустіть додаток
-        """)
+        st.info("Завантажте вручну: [NOAA WMM2025](https://www.ncei.noaa.gov/products/world-magnetic-model/wmm-coefficients)")
         st.stop()
 
 COF_PATH = download_wmm()
@@ -112,18 +74,18 @@ def get_rtdm(lat: float, lon: float, alt: float = 0) -> Dict:
         params = {"latitude": lat, "longitude": lon, "altitude": alt / 1000, "format": "json"}
         r = requests.get(RTDM_API, params=params, timeout=10)
         if r.status_code == 200:
-            data = r.json()
+            d = r.json()
             return {
-                "decl_rt": data.get("declination", 0) - data.get("quiet_declination", 0),
-                "total_rt": data.get("total_intensity", 0) - data.get("quiet_intensity", 0),
-                "storm": data.get("storm_level", "quiet")
+                "decl_rt": d.get("declination", 0) - d.get("quiet_declination", 0),
+                "total_rt": d.get("total_intensity", 0) - d.get("quiet_intensity", 0),
+                "storm": d.get("storm_level", "quiet")
             }
     except:
         pass
     return {"decl_rt": 0.0, "total_rt": 0.0, "storm": "offline"}
 
 # =============================================
-# MGRS + UTM
+# MGRS + UTM (векторизовані)
 # =============================================
 _vec_mgrs = np.vectorize(lambda lat, lon: MGRS_CONV.toMGRS(lat, lon, 5) if -90 <= lat <= 90 else "Invalid")
 
@@ -149,7 +111,7 @@ def batch_utm(lats: np.ndarray, lons: np.ndarray) -> Tuple[np.ndarray, np.ndarra
     return zones, east, north
 
 # =============================================
-# ОБЧИСЛЕННЯ
+# ОБЧИСЛЕННЯ (паралельне)
 # =============================================
 @st.cache_data
 def calc_point(lat: float, lon: float, alt: float, year: float) -> Dict:
@@ -168,6 +130,10 @@ def calc_point(lat: float, lon: float, alt: float, year: float) -> Dict:
         "utm_zone": utm_z[0], "utm_e": utm_e[0], "utm_n": utm_n[0]
     }
 
+def calc_batch(points: List[Tuple[float, float, float]], year: float) -> List[Dict]:
+    with ThreadPoolExecutor() as executor:
+        return list(executor.map(lambda p: calc_point(*p, year), points))
+
 # =============================================
 # ВЕКТОРИ
 # =============================================
@@ -178,10 +144,13 @@ def load_vector(file) -> gpd.GeoDataFrame:
             gdf = gpd.read_file(file)
         elif file.name.endswith(".zip"):
             with zipfile.ZipFile(file) as z:
-                shp = [f for f in z.namelist() if f.endswith(".shp")][0]
+                shp = next((f for f in z.namelist() if f.endswith(".shp")), None)
+                if not shp:
+                    st.error("Shapefile не знайдено в ZIP")
+                    return gpd.GeoDataFrame()
                 gdf = gpd.read_file(z.open(shp))
         else:
-            st.error("Формат: .geojson або .zip (shapefile)")
+            st.error("Формат: .geojson або .zip")
             return gpd.GeoDataFrame()
         gdf = gdf.to_crs(epsg=4326)
         if len(gdf) > 500:
@@ -189,38 +158,41 @@ def load_vector(file) -> gpd.GeoDataFrame:
         gdf.geometry = gdf.geometry.simplify(0.001)
         return gdf
     except Exception as e:
-        st.error(f"Помилка завантаження: {e}")
+        st.error(f"Помилка: {e}")
         return gpd.GeoDataFrame()
 
 # =============================================
 # ІНТЕРФЕЙС
 # =============================================
-st.title("🧭 Geomagnetic Pro 2025 — Виправлено WMM2025")
-st.markdown("**WMM2025 | RTDM | MGRS | UTM | Теплова карта | Вектори | Клік | Висота**")
+st.title("Geomagnetic Pro 2025")
+st.markdown("**WMM2025 + RTDM | Теплова карта | MGRS/UTM | Висота | Вектори**")
 
-tabs = st.tabs(["Калькулятор", "Карта", "Пакет"])
+tab_calc, tab_map, tab_pkg = st.tabs(["Калькулятор", "Карта", "Пакет"])
 
 # === КАЛЬКУЛЯТОР ===
-with tabs[0]:
+with tab_calc:
     col1, col2 = st.columns(2)
     with col1:
-        lat = st.number_input("Широта", value=55.7558, format="%.6f")
-        lon = st.number_input("Довгота", value=37.6173, format="%.6f")
+        lat = st.number_input("Широта", value=50.4501, format="%.6f")
+        lon = st.number_input("Довгота", value=30.5234, format="%.6f")
     with col2:
         alt = st.number_input("Висота (м)", value=0.0, step=100.0)
-    if st.button("Обчислити"):
+    if st.button("Обчислити", type="primary"):
         res = calc_point(lat, lon, alt, decimal_year(date.today()))
         if "error" in res:
             st.error(res["error"])
         else:
-            st.metric("**MGRS**", res["mgrs"])
-            st.metric("**UTM**", f"{res['utm_zone']} {res['utm_e']}E {res['utm_n']}N")
-            st.metric("**Деклінація**", f"{res['decl']}°")
-            st.metric("**Інтенсивність**", f"{res['total']} nT")
+            cols = st.columns(3)
+            with cols[0]:
+                st.metric("MGRS", res["mgrs"])
+            with cols[1]:
+                st.metric("UTM", f"{res['utm_zone']} {res['utm_e']}E")
+            with cols[2]:
+                st.metric("Деклінація", f"{res['decl']}°")
             st.json(res)
 
 # === КАРТА ===
-with tabs[1]:
+with tab_map:
     vector_file = st.file_uploader("Вектор (GeoJSON/Shapefile)", ["geojson", "json", "zip"])
     gdf = load_vector(vector_file) if vector_file else None
 
@@ -232,13 +204,11 @@ with tabs[1]:
 
     cache_key = f"grid_{alt_grid}_{step}"
     if cache_key not in st.session_state:
-        lat_min, lat_max = 48.0, 52.0
-        lon_min, lon_max = 22.0, 40.0
-        lats = np.arange(lat_min, lat_max, step)
-        lons = np.arange(lon_min, lon_max, step)
+        lats = np.arange(48.0, 52.0, step)
+        lons = np.arange(22.0, 40.0, step)
         grid = [(la, lo, alt_grid) for la in lats for lo in lons]
-        with st.spinner(f"Генерація теплової карти на {alt_grid} м..."):
-            results = [calc_point(*p, decimal_year(date.today())) for p in grid]
+        with st.spinner(f"Генерація теплової карти..."):
+            results = calc_batch(grid, decimal_year(date.today()))
         st.session_state[cache_key] = pd.DataFrame(results)
 
     df_heatmap = st.session_state[cache_key]
@@ -259,14 +229,9 @@ with tabs[1]:
             elif geom.geom_type in ['LineString', 'MultiLineString']:
                 lons, lats = geom.xy
                 fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode="lines", line=dict(color="purple", width=2)))
-            elif geom.geom_type in ['Polygon', 'MultiPolygon']:
-                for poly in [geom] if geom.geom_type == 'Polygon' else geom.geoms:
-                    x, y = poly.exterior.xy
-                    fig.add_trace(go.Scattermapbox(lat=y, lon=x, fill="toself", fillcolor="rgba(100,0,100,0.1)", line=dict(color="purple")))
 
     if "click_points" not in st.session_state:
         st.session_state.click_points = []
-
     for pt in st.session_state.click_points:
         fig.add_trace(go.Scattermapbox(lat=[pt["lat"]], lon=[pt["lon"]], mode="markers", marker=dict(color="red", size=12)))
 
@@ -276,11 +241,11 @@ with tabs[1]:
         height=600, margin=dict(l=0,r=0,b=0,t=0)
     )
 
-    clicked = st.plotly_chart(fig, use_container_width=True, key="map_final")
+    clicked = st.plotly_chart(fig, use_container_width=True, key="map")
 
     if clicked and clicked["data"]:
         for trace in clicked["data"]:
-            if "lat" in trace and len(trace["lat"]) > 0:
+            if "lat" in trace and trace["lat"]:
                 lat, lon = trace["lat"][0], trace["lon"][0]
                 click_alt = st.number_input("Висота кліку (м)", value=alt_grid, key=f"click_alt_{len(st.session_state.click_points)}")
                 res = calc_point(lat, lon, click_alt, decimal_year(date.today()))
@@ -295,15 +260,14 @@ with tabs[1]:
             st.rerun()
 
 # === ПАКЕТ ===
-with tabs[2]:
+with tab_pkg:
     file = st.file_uploader("CSV (lat,lon,alt)", ["csv"])
     if file:
         df = pd.read_csv(file)
-        if "alt" not in df.columns:
-            df["alt"] = 0
+        df["alt"] = df.get("alt", 0).fillna(0)
         points = [(r["lat"], r["lon"], r["alt"]) for _, r in df.iterrows()]
         with st.spinner("Обчислення..."):
-            results = [calc_point(*p, decimal_year(date.today())) for p in points]
+            results = calc_batch(points, decimal_year(date.today()))
         df_out = pd.DataFrame(results)
-        st.dataframe(df_out)
-        st.download_button("CSV", df_out.to_csv(index=False).encode(), "geomag_final.csv")
+        st.dataframe(df_out, use_container_width=True)
+        st.download_button("Експорт CSV", df_out.to_csv(index=False).encode(), "geomag_results.csv", "text/csv")
