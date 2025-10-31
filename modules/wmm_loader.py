@@ -63,8 +63,13 @@ class WMMLoader:
             raise FileNotFoundError("Файл коефіцієнтів WMM відсутній або порожній")
         
         return GeoMag(coefficients_file=_self.cof_path)
-    
+        # modules/wmm_loader.py
     def decimal_year(self, d: date) -> float:
-        """Конвертація дати в десятковий рік"""
-        start = date(d.year, 1, 1)
-        return d.year + (d - start).days / 365.25
+       year = d.year
+       start = date(year, 1, 1)
+       end = date(year + 1, 1, 1)
+       return year + (d - start).days / (end - start).days
+        
+    
+
+
