@@ -105,7 +105,6 @@ def get_rtdm(lat: float, lon: float, alt: float = 0) -> Dict:
     except:
         pass
     return {"decl_rt": 0.0, "total_rt": 0.0, "storm": "offline"}
-
 # =============================================
 # АВТОВИСОТА (DEM)
 # =============================================
@@ -164,20 +163,20 @@ def utm_to_latlon(zone: int, east: float, north: float, south: bool = False) -> 
 def calc_point(lat: float, lon: float, alt: float, year: float) -> Dict:
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return {"error": "Invalid coordinates"}
-    wmm = get_wmm().calculate(glat=lat, glon=lon, alt=alt/1000, time=year)
-    rt = get_rtdm(lat, lon, alt)
+    final_alt = alt if alt > 0 else get_elevation(lat, lon)
+    wmm = get_wmm().calculate(glat=lat, glon=lon, alt=final_alt/1000, time=year)
+    rt = get_rtdm(lat, lon, final_alt)
     decl = wmm.d + rt["decl_rt"]
     total = wmm.f + rt["total_rt"]
     mgrs_str = latlon_to_mgrs(lat, lon)
     utm_zone, utm_e, utm_n = latlon_to_utm(lat, lon)
     return {
         "datum": DATUM,
-        "lat": round(lat, 8), "lon": round(lon, 8), "alt": round(alt, 1),
+        "lat": round(lat, 8), "lon": round(lon, 8), "alt": round(final_alt, 1),
         "decl": round(decl, 4), "total": round(total, 2),
         "storm": rt["storm"], "mgrs": mgrs_str,
         "utm_zone": utm_zone, "utm_e": utm_e, "utm_n": utm_n
     }
-
 def calc_batch(points: List[Tuple[float, float, float]], year: float) -> List[Dict]:
     with ThreadPoolExecutor() as executor:
         return list(executor.map(lambda p: calc_point(*p, year), points))
@@ -303,35 +302,43 @@ with tab_calc:
 
 # === КАРТА ===
 with tab_map:
-    st.subheader("Теплова карта деклінації")
-    vector_file = st.file_uploader("Вектор (GeoJSON/Shapefile)", ["geojson", "json", "zip"])
-    gdf = load_vector(vector_file) if vector_file else None
+    st.subheader("Теплова карта деклінації — Росія")
 
+    # === НАЛАШТУВАННЯ СІТКИ ===
     col1, col2 = st.columns(2)
     with col1:
-        alt_grid = st.slider("Висота сітки (м)", 0, 10000, 0, 500)
+        alt_min = st.slider("Мін. висота (м)", 0, 10000, 500, 500, key="alt_min")
+        alt_max = st.slider("Макс. висота (м)", 0, 10000, 5000, 500, key="alt_max")
+        alt_step = st.slider("Крок висоти (м)", 100, 2000, 500, 100, key="alt_step")
     with col2:
-        step = st.slider("Крок (°)", 0.1, 1.0, 0.5, 0.1)
+        lat_step = st.slider("Крок широти (°)", 0.1, 2.0, 1.0, 0.1, key="lat_step")
+        lon_step = st.slider("Крок довготи (°)", 0.1, 2.0, 1.0, 0.1, key="lon_step")
 
-    cache_key = f"grid_{alt_grid}_{step}"
+    # === СІТКА ПО РОСІЇ ===
+    cache_key = f"grid_ru_{alt_min}_{alt_max}_{alt_step}_{lat_step}_{lon_step}"
     if cache_key not in st.session_state:
-        lats = np.arange(48.0, 52.0, step)
-        lons = np.arange(22.0, 40.0, step)
-        grid = [(la, lo, alt_grid) for la in lats for lo in lons]
-        with st.spinner("Генерація..."):
+        lats = np.arange(41.0, 82.0, lat_step)
+        lons = np.arange(19.0, 180.0, lon_step)
+        alts = np.arange(alt_min, alt_max + alt_step, alt_step)
+        grid = [(la, lo, alt) for la in lats for lo in lons for alt in alts]
+        with st.spinner("Генерація теплової карти (Росія)..."):
             results = calc_batch(grid, decimal_year(date.today()))
         st.session_state[cache_key] = pd.DataFrame(results)
 
     df_heatmap = st.session_state[cache_key]
 
+    # === ФІГУРА ===
     fig = go.Figure()
     fig.add_trace(go.Densitymap(
         lat=df_heatmap["lat"], lon=df_heatmap["lon"],
-        z=df_heatmap["decl"], radius=20,
-        colorscale="RdBu", zmid=0, opacity=0.6,
+        z=df_heatmap["decl"], radius=15,
+        colorscale="RdBu", zmid=0, opacity=0.7,
         colorbar=dict(title="Деклінація (°)")
     ))
 
+    # Вектори
+    vector_file = st.file_uploader("Вектор (GeoJSON/Shapefile)", ["geojson", "json", "zip"], key="vector_map")
+    gdf = load_vector(vector_file) if vector_file else None
     if gdf is not None and not gdf.empty:
         for _, row in gdf.iterrows():
             geom = row.geometry
@@ -341,36 +348,117 @@ with tab_map:
                 lons, lats = geom.xy
                 fig.add_trace(go.Scattermapbox(lat=lats, lon=lons, mode="lines", line=dict(color="purple", width=2)))
 
-    if "click_points" not in st.session_state:
-        st.session_state.click_points = []
+    # === ІНІЦІАЛІЗАЦІЯ ІСТОРІЇ ===
+    if "history_points" not in st.session_state:
+        st.session_state.history_points = []
 
-    for pt in st.session_state.click_points:
-        fig.add_trace(go.Scattermapbox(lat=[pt["lat"]], lon=[pt["lon"]], mode="markers", marker=dict(color="red", size=12)))
+    # === ДОДАВАННЯ ТОЧОК ===
+    def add_point(lat: float, lon: float, alt: float, source: str):
+        res = calc_point(lat, lon, alt, decimal_year(date.today()))
+        res["source"] = source
+        st.session_state.history_points.append(res)
+        st.session_state.click_points.append(res)
+        # Автоцентрування
+        fig.update_layout(mapbox=dict(center=dict(lat=lat, lon=lon), zoom=10))
 
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox=dict(center=dict(lat=50.0, lon=30.0), zoom=5),
-        height=600, margin=dict(l=0,r=0,b=0,t=0)
-    )
+    # === ВВЕДЕННЯ ТОЧКИ ЧЕРЕЗ MGRS/UTM ===
+    st.divider()
+    st.subheader("Додати точку через MGRS або UTM")
 
-    st.plotly_chart(fig, width="stretch", key="map", on_select="rerun")
+    col_a, col_b = st.columns(2)
 
+    with col_a:
+        st.markdown("**Через MGRS**")
+        mgrs_input = st.text_input("MGRS", "49TDG1234567890", key="mgrs_input")
+        mgrs_prec = st.select_slider("Точність", [1,2,3,4,5], 5, format_func=lambda x: f"{10**(5-x)} м", key="mgrs_prec")
+        if st.button("Додати точку", key="add_mgrs"):
+            lat, lon, _ = mgrs_to_latlon(mgrs_input)
+            if lat:
+                elev = get_elevation(lat, lon)
+                add_point(lat, lon, elev, "MGRS")
+                st.success(f"Додано: {lat:.6f}°, {lon:.6f}° | Висота: {elev:.1f} м")
+                st.rerun()
+            else:
+                st.error("Невірний MGRS")
+
+    with col_b:
+        st.markdown("**Через UTM**")
+        zone_in = st.number_input("Зона", 1, 60, 49, key="utm_zone_in")
+        east_in = st.number_input("Easting (м)", value=300000.000, format="%.3f", key="utm_e_in")
+        north_in = st.number_input("Northing (м)", value=6500000.000, format="%.3f", key="utm_n_in")
+        south_hem = st.checkbox("Південна півкуля", key="utm_south_in")
+        if st.button("Додати точку", key="add_utm"):
+            lat, lon = utm_to_latlon(zone_in, east_in, north_in, south_hem)
+            elev = get_elevation(lat, lon)
+            add_point(lat, lon, elev, "UTM")
+            st.success(f"Додано: {lat:.6f}°, {lon:.6f}° | Висота: {elev:.1f} м")
+            st.rerun()
+
+    # === КЛІК ПО КАРТІ ===
     if st.session_state.get("plotly_events"):
         event = st.session_state.plotly_events[0]
         if event["type"] == "click":
             lat, lon = event["points"][0]["lat"], event["points"][0]["lon"]
-            click_alt = st.number_input("Висота кліку (м)", value=alt_grid, key=f"click_alt_{len(st.session_state.click_points)}")
-            res = calc_point(lat, lon, click_alt, decimal_year(date.today()))
-            st.session_state.click_points.append(res)
+            elev = get_elevation(lat, lon)
+            add_point(lat, lon, elev, "Клік")
             st.rerun()
 
-    if st.session_state.click_points:
-        df_click = pd.DataFrame(st.session_state.click_points)
-        st.dataframe(df_click[["lat", "lon", "mgrs", "decl", "total"]], use_container_width=True)
-        if st.button("Очистити"):
+    # === ВІДОБРАЖЕННЯ ТОЧОК НА КАРТІ ===
+    for pt in st.session_state.history_points:
+        color = {"Клік": "red", "MGRS": "blue", "UTM": "orange"}.get(pt["source"], "black")
+        fig.add_trace(go.Scattermapbox(
+            lat=[pt["lat"]], lon=[pt["lon"]],
+            mode="markers",
+            marker=dict(color=color, size=12),
+            text=f"{pt['mgrs']}<br>{pt['decl']}°<br>{pt['alt']} м",
+            hoverinfo="text"
+        ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox=dict(center=dict(lat=61.0, lon=100.0), zoom=3),
+        height=600, margin=dict(l=0,r=0,b=0,t=0)
+    )
+
+    st.plotly_chart(fig, width="stretch", key="map_ru", on_select="rerun")
+
+    # === РОЗДІЛ ІСТОРІЯ ===
+    st.divider()
+    st.subheader("Історія точок")
+
+    if st.session_state.history_points:
+        df_history = pd.DataFrame(st.session_state.history_points)
+        df_display = df_history[["source", "lat", "lon", "alt", "mgrs", "utm_zone", "decl", "total"]].copy()
+        df_display.columns = ["Джерело", "Широта", "Довгота", "Висота (м)", "MGRS", "UTM Зона", "Деклінація (°)", "Інтенсивність (nT)"]
+
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            column_config={
+                "Широта": st.column_config.NumberColumn(format="%.6f"),
+                "Довгота": st.column_config.NumberColumn(format="%.6f"),
+                "Висота (м)": st.column_config.NumberColumn(format="%.1f"),
+                "Деклінація (°)": st.column_config.NumberColumn(format="%.3f"),
+                "Інтенсивність (nT)": st.column_config.NumberColumn(format="%.0f"),
+            }
+        )
+
+        # ЕКСПОРТ
+        csv = df_history.to_csv(index=False).encode()
+        st.download_button(
+            label="Експорт історії в CSV",
+            data=csv,
+            file_name=f"geomag_history_{date.today()}.csv",
+            mime="text/csv"
+        )
+
+        # ОЧИСТКА
+        if st.button("Очистити історію та карту", type="secondary"):
+            st.session_state.history_points = []
             st.session_state.click_points = []
             st.rerun()
-
+    else:
+        st.info("Історія порожня. Додайте точки через клік, MGRS або UTM.")
 # === ПАКЕТ ===
 with tab_pkg:
     st.subheader("Пакетне обчислення")
