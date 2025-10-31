@@ -12,7 +12,6 @@ class MapManager:
         self.session = session
         self.exporter = exporter
         self.config = session.config
-    
     def create_leaflet_map(self, center_lat: float, center_lon: float, zoom: int, 
                           points: List[Dict], search_point: Optional[Dict] = None) -> str:
         """Створення Leaflet карти з точками"""
