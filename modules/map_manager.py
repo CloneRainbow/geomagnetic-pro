@@ -1,11 +1,19 @@
 # =============================================
 # Управління картою Leaflet
 # =============================================
+from __future__ import annotations
 
 import streamlit as st
 import streamlit.components.v1 as components
 import json
+from datetime import datetime
+
+
 from typing import List, Dict, Optional
+from .session_manager import SessionManager
+from .data_export import DataExporter
+from .coordinates import CoordinateConverter
+from .calculator import Calculator  # для динамічного імпорту
 
 class MapManager:
     def __init__(self, session: SessionManager, exporter: DataExporter):
