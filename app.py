@@ -15,7 +15,7 @@ session = SessionManager(config)
 exporter = DataExporter()
 
 calculator = Calculator(session)
-map_manager = MapManager(session, exportet)
+map_manager = MapManager(session, exporter)
     
     # Заголовок додатку
     st.title("🧭 Geomagnetic Pro 2025")
