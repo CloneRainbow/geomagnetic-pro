@@ -7,25 +7,19 @@ import streamlit as st
 import requests
 import numpy as np
 from datetime import datetime
-from typing import Dict, Any
-
+from typing import Dict
 from .wmm_loader import WMMLoader
 from .coordinates import CoordinateConverter
-from .session import Session  # Додано
-
+from .session_manager import SessionManager
 
 class Calculator:
-    """Клас для геомагнітних розрахунків"""
-    
-    def __init__(self, session: Session):
+    def __init__(self, session: SessionManager):
         self.session = session
         self.config = session.config
-        self.wmm_loader = WMMLoader(
-            getattr(self.config, 'COF_URL', "https://www.ncei.noaa.gov/data/world-magnetic-model-2025/full/WMM_COEFS-2025.zip"),
-            getattr(self.config, 'COF_PATH', "wmm/WMM_2025.COF")
-        )
+        self.wmm_loader = WMMLoader(self.config.COF_URL, self.config.COF_PATH)
         self.coord_converter = CoordinateConverter()
-        self.rtdm_api = getattr(self.config, 'RTDM_API', "https://geomag.usgs.gov/ws/edge/")
+        self.rtdm_api = self.config.RTDM_API
+    
         
         # Завантаження WMM
         self.wmm_loader.download_wmm()
