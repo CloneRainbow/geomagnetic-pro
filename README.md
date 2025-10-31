@@ -1,18 +1,29 @@
 # Geomagnetic Pro 2025
 
-Професійний додаток для роботи з геомагнітними даними на основі WMM 2025.
+**Офлайн-калькулятор магнітного поля: WMM2025 + RTDM, MGRS/UTM, DEM, експорт.**
 
-## 🌟 Можливості
+[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit)](https://streamlit.io)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python)](https://python.org)
 
-- **Точні геомагнітні розрахунки** з використанням WMM 2025
-- **Leaflet карта** з високою точністю та навігацією
-- **Пошук за MGRS координатами** 
-- **Конвертація координат** між системами (MGRS, UTM, географічні)
-- **Пакетна обробка** CSV файлів
-- **Історія точок** з експортом даних
+> **Офлайн | GeoJSON | GPX | KML | MGRS/UTM**
 
-## 🚀 Швидкий старт
+---
 
-1. Встановіть залежності:
+## Функції
+
+- WMM2025 (офлайн)
+- RTDM (USGS API + кеш)
+- Автовисота (SRTM30m)
+- MGRS ↔ Lat/Lon, UTM
+- Пакетне обчислення (CSV)
+- Експорт: CSV, KML, GPX, GeoJSON
+- Теплова карта деклінації
+
+---
+
+## Встановлення
+
 ```bash
+git clone https://github.com/yourusername/geomagnetic-pro.git
+cd geomagnetic-pro
 pip install -r requirements.txt
