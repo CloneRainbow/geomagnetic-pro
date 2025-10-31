@@ -16,6 +16,7 @@ class SessionManager:
     
     def __init__(self, config):
         self.config = config
+        self.today = date.today()
         self._initialize_session_state()
     
     def _initialize_session_state(self):
