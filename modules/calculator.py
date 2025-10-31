@@ -106,6 +106,7 @@ class Calculator:
     def render_calculator_tab(self):
         """Відображення вкладки калькулятора"""
         st.subheader("Калькулятор геомагнітних параметрів")
+        calc_date = st.date_input("Дата розрахунку", value=self.session.today, key="calc_date")
         
         col1, col2 = st.columns(2)
         
