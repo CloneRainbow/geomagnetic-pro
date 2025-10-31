@@ -18,6 +18,7 @@ calculator = Calculator(session)
 map_manager = MapManager(session, exporter)
     
     # Заголовок додатку
+    st.set_page_config(page_title="Geomagnetic Pro 2025", page_icon="compass", layout="wide")
     st.title("🧭 Geomagnetic Pro 2025")
     st.markdown("Карта | MGRS пошук | Геомагнітні параметри")
     
