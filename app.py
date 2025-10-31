@@ -7,22 +7,15 @@ from modules.config import Config
 from modules.session_manager import SessionManager
 from modules.calculator import Calculator
 from modules.map_manager import MapManager
-from modules.data_import import DataImporter
 from modules.data_export import DataExporter
 
-def main():
-    # Ініціалізація конфігурації
-    config = Config()
-    config.setup_page()
-    
-    # Ініціалізація менеджера сесії
-    session = SessionManager()
-    
-    # Ініціалізація модулів
-    calculator = Calculator()
-    map_manager = MapManager()
-    data_importer = DataImporter()
-    data_exporter = DataExporter()
+# === Ініціалізація ===
+config = Config()
+session = SessionManager(config)
+exporter = DataExporter()
+
+calculator = Calculator(session)
+map_manager = MapManager(session, exporte
     
     # Заголовок додатку
     st.title("🧭 Geomagnetic Pro 2025")
